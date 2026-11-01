@@ -650,6 +650,13 @@ class Repo private constructor(context: Context) {
 
     fun editorSizePeek(): Int = root.optJSONObject("ed")?.optInt("size", 16) ?: 16
 
+    fun editorGapPeek(): Float = root.optJSONObject("ed")?.optDouble("gap", 1.0)?.toFloat() ?: 1.0f
+
+    fun setEditorGap(g: Float) {
+        root.getJSONObject("ed").put("gap", g.toDouble())
+        persist()
+    }
+
     fun setEditorFont(f: String) {
         root.getJSONObject("ed").put("font", f)
         persist()

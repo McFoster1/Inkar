@@ -274,8 +274,8 @@ private fun androidTypeface(ctx: Context, key: String): Typeface {
 /** Comfortable but compact line height, as a multiple of the font size. */
 private const val LINE_HEIGHT_EM = 1.4f
 
-/** Extra space after every paragraph (after a line break), as a multiple of the font size. */
-private const val PARAGRAPH_GAP_EM = 0.45f
+/** Default paragraph gap, in lines: 1.0 leaves one full empty line between paragraphs. */
+const val DEFAULT_GAP_LINES = 1.0f
 
 /**
  * One span for the whole text. It sets the line height and adds a small gap under the last line of every
@@ -465,8 +465,8 @@ class WriterController(private val initialText: String, private val initialFlags
     }
 
     /** Applies font, size, colours and the line-height span. Cheap when nothing changed. */
-    fun applyLook(v: WriterEditText, fontKey: String, sizeSp: Int, textColor: Int, hintColor: Int, accent: Int) {
-        val key = "$fontKey|$sizeSp|$textColor|$hintColor|$accent"
+    fun applyLook(v: WriterEditText, fontKey: String, sizeSp: Int, gapLines: Float, textColor: Int, hintColor: Int, accent: Int) {
+        val key = "$fontKey|$sizeSp|$gapLines|$textColor|$hintColor|$accent"
         if (key == lookKey) return
         lookKey = key
         val density = v.resources.displayMetrics.density
@@ -483,7 +483,7 @@ class WriterController(private val initialText: String, private val initialFlags
         }
         val px = v.textSize
         lineSpan.lineHeightPx = (px * LINE_HEIGHT_EM).roundToInt()
-        lineSpan.gapPx = (px * PARAGRAPH_GAP_EM).roundToInt()
+        lineSpan.gapPx = (lineSpan.lineHeightPx * gapLines).roundToInt()
         val e = v.text
         e.removeSpan(lineSpan)
         e.setSpan(lineSpan, 0, e.length, Spanned.SPAN_INCLUSIVE_INCLUSIVE)
@@ -647,6 +647,7 @@ private fun EditorBody(
     var title by remember(sid, cid) { mutableStateOf(chapter.title) }
     var font by remember { mutableStateOf(repo.editorFontPeek()) }
     var size by remember { mutableStateOf(repo.editorSizePeek()) }
+    var gap by remember { mutableStateOf(repo.editorGapPeek()) }
     var status by remember { mutableStateOf("Saved locally") }
     var saved by remember { mutableStateOf(true) }
     var showFp by remember { mutableStateOf(false) }
@@ -769,13 +770,16 @@ private fun EditorBody(
                         onDismissRequest = { showFp = false },
                         properties = PopupProperties(focusable = true),
                     ) {
-                        FontPanel(font, size, onFont = {
+                        FontPanel(font, size, gap, onFont = {
                             font = it
                             repo.setEditorFont(it)
-                        }, onSize = { size = it }, onSizeDone = { repo.setEditorSize(size) }, onReset = {
-                            size = 16
-                            repo.setEditorSize(16)
-                        })
+                        }, onSize = { size = it }, onSizeDone = { repo.setEditorSize(size) },
+                            onGap = { gap = it }, onGapDone = { repo.setEditorGap(gap) }, onReset = {
+                                size = 16
+                                gap = DEFAULT_GAP_LINES
+                                repo.setEditorSize(16)
+                                repo.setEditorGap(DEFAULT_GAP_LINES)
+                            })
                     }
                 }
             }
@@ -801,7 +805,7 @@ private fun EditorBody(
                 }
             },
             update = { v ->
-                ctl.applyLook(v, font, size, textColor, hintColor, accent)
+                ctl.applyLook(v, font, size, gap, textColor, hintColor, accent)
                 ctl.setViewing(v, viewing)
             },
             modifier = Modifier.fillMaxWidth().weight(1f),
@@ -846,7 +850,17 @@ private fun TbIcon(icon: Int, enabled: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun FontPanel(font: String, size: Int, onFont: (String) -> Unit, onSize: (Int) -> Unit, onSizeDone: () -> Unit, onReset: () -> Unit) {
+private fun FontPanel(
+    font: String,
+    size: Int,
+    gap: Float,
+    onFont: (String) -> Unit,
+    onSize: (Int) -> Unit,
+    onSizeDone: () -> Unit,
+    onGap: (Float) -> Unit,
+    onGapDone: () -> Unit,
+    onReset: () -> Unit,
+) {
     val shape = RoundedCornerShape(12.dp)
     Column(
         Modifier.width(300.dp).shadow(12.dp, shape).clip(shape).background(InkCard).border(1.dp, InkBorder, shape).padding(14.dp),
@@ -875,6 +889,16 @@ private fun FontPanel(font: String, size: Int, onFont: (String) -> Unit, onSize:
             steps = 19,
             colors = SliderDefaults.colors(thumbColor = InkBlue, activeTrackColor = InkBlue, inactiveTrackColor = InkEl),
         )
-        Btn("Reset size", onReset, small = true)
+        Spacer(Modifier.height(6.dp))
+        Txt("PARAGRAPH GAP · " + String.format(java.util.Locale.US, "%.1f", gap) + (if (gap == 1.0f) " line" else " lines"), 11f, InkDim, FontWeight.SemiBold, spacing = 0.88f)
+        Slider(
+            value = gap,
+            onValueChange = { onGap((it * 10f).roundToInt() / 10f) },
+            onValueChangeFinished = onGapDone,
+            valueRange = 0f..1.5f,
+            steps = 14,
+            colors = SliderDefaults.colors(thumbColor = InkBlue, activeTrackColor = InkBlue, inactiveTrackColor = InkEl),
+        )
+        Btn("Reset", onReset, small = true)
     }
 }
