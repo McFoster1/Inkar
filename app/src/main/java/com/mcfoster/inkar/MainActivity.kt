@@ -227,7 +227,7 @@ private fun InkarApp(repo: Repo) {
                             }
                         }
                     }
-                    3 -> ComingSoon("Stats", "Charts and statistics arrive in Phase 3.")
+                    3 -> StatsScreen(repo)
                     else -> MenuScreen(repo)
                 }
             }

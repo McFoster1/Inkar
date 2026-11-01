@@ -90,6 +90,7 @@ val InkText: Color get() = if (Theme.isLight) Color(0xF20A0C10) else Color(0xF2F
 val InkMuted: Color get() = if (Theme.isLight) Color(0xA60A0C10) else Color(0xA6FFFFFF)
 val InkDim: Color get() = if (Theme.isLight) Color(0x6B0A0C10) else Color(0x61FFFFFF)
 val InkGlow: Color get() = if (Theme.isLight) Color(0x142563EB) else Color(0x2E2563EB)
+val InkGlow2: Color get() = if (Theme.isLight) Color(0x4D2563EB) else Color(0x733B82F6)
 val InkPop: Color get() = if (Theme.isLight) Color(0xEBFFFFFF) else Color(0xE61A1E25)
 
 fun inkColorScheme() = if (Theme.isLight) {

@@ -488,6 +488,11 @@ class WriterController(private val initialText: String, private val initialFlags
         e.removeSpan(lineSpan)
         e.setSpan(lineSpan, 0, e.length, Spanned.SPAN_INCLUSIVE_INCLUSIVE)
         v.setPadding(0, (12 * density).roundToInt(), 0, (24 * density).roundToInt())
+        // The text box only rebuilds its lines when text, size or font metrics change. Flipping this setting
+        // twice forces a rebuild so a new paragraph gap shows immediately, without typing a letter.
+        v.setIncludeFontPadding(true)
+        v.setIncludeFontPadding(false)
+        v.invalidate()
     }
 
     /** Edit mode lets you type; view mode only lets you read and scroll. */

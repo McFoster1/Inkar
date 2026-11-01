@@ -54,6 +54,8 @@ fun wc(t: String): Int = WORD.findAll(t).count()
 
 class EditChapter(val title: String, val html: String, val content: String, val storyTitle: String)
 
+data class WeekdayStats(val days: Int, val avg: List<Int>)
+
 data class ChartDay(val date: LocalDate, val words: Map<String, Int>)
 
 class LevelInfo(
@@ -703,6 +705,51 @@ class Repo private constructor(context: Context) {
             root.put("lvl", l.index)
             levelUp = l
         }
+    }
+
+    // ---------- stats page ----------
+
+    /** Words written per day for the last n days, oldest first. */
+    fun daySeries(n: Int): List<Pair<LocalDate, Int>> {
+        track()
+        val act = root.getJSONObject("activity")
+        return (n - 1 downTo 0).map { i ->
+            val d = LocalDate.now().minusDays(i.toLong())
+            d to maxOf(0, act.optInt(d.toString(), 0))
+        }
+    }
+
+    /** Average words for each weekday (Mon..Sun) since the first writing day, over at most 84 days. */
+    fun weekdayStats(): WeekdayStats {
+        track()
+        val act = root.getJSONObject("activity")
+        val ks = act.keyList().filter { act.optInt(it, 0) > 0 }.sorted()
+        val r = daySeries(84)
+        var a = 0
+        if (ks.isNotEmpty()) a = maxOf(0, r.indexOfFirst { it.first.toString() >= ks[0] })
+        val sum = IntArray(7)
+        val cnt = IntArray(7)
+        for (k in a until r.size) {
+            val g = r[k].first.dayOfWeek.value - 1
+            sum[g] += r[k].second
+            cnt[g]++
+        }
+        return WeekdayStats(r.size - a, List(7) { if (cnt[it] > 0) Math.round(sum[it].toDouble() / cnt[it]).toInt() else 0 })
+    }
+
+    fun longestStreak(): Int {
+        track()
+        val act = root.getJSONObject("activity")
+        val days = act.keyList().filter { act.optInt(it, 0) > 0 }.sorted().mapNotNull { runCatching { LocalDate.parse(it) }.getOrNull() }
+        var best = 0
+        var run = 0
+        var prev: LocalDate? = null
+        for (d in days) {
+            run = if (prev != null && java.time.temporal.ChronoUnit.DAYS.between(prev, d) == 1L) run + 1 else 1
+            prev = d
+            if (run > best) best = run
+        }
+        return best
     }
 
     // ---------- settings ----------

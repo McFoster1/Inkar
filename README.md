@@ -10,4 +10,4 @@ Go to **Actions > Build Kotlin APK > Run workflow**, enter a version (for exampl
 
 ## Status
 
-Phase 2.4: paragraph gap slider (default one full line) in the Aa panel. Stats tab is still a placeholder.
+Phase 3: Stats tab (level card, tiles, writing chart, weekday insights, weekly target, writing and goal days, story statistics) and a live paragraph gap. All three phases are in.
