@@ -68,7 +68,7 @@ val NAV_DEFS = listOf(
 
 /** Top bar shown on every tab: logo, search and theme buttons, plus the main navigation on wide screens. */
 @Composable
-fun AppTopBar(repo: Repo, showNav: Boolean, selected: Int, onSelect: (Int) -> Unit) {
+fun AppTopBar(repo: Repo, showNav: Boolean, selected: Int, onSelect: (Int) -> Unit, onSearch: () -> Unit) {
     val ctx = LocalContext.current
     Column {
         Row(
@@ -105,7 +105,7 @@ fun AppTopBar(repo: Repo, showNav: Boolean, selected: Int, onSelect: (Int) -> Un
                 Spacer(Modifier.weight(1f))
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                SquareIconBtn(R.drawable.ic_search) { toast(ctx, "Search arrives in a later phase") }
+                SquareIconBtn(R.drawable.ic_search) { onSearch() }
                 Btn("◐ Theme", { repo.setTheme(if (Theme.isLight) "dark" else "light") }, small = true)
             }
         }

@@ -80,12 +80,13 @@ private val THEME_OPTS = listOf("Dark", "Light", "System")
 private val BK_OPTS = listOf(0 to "Off", 7 to "Every week", 14 to "Every 2 weeks", 30 to "Every month")
 
 @Composable
-fun MenuScreen(repo: Repo) {
+fun MenuScreen(repo: Repo, onCleared: () -> Unit) {
     val ctx = LocalContext.current
     var name by remember { mutableStateOf(repo.name()) }
     var goal by remember { mutableStateOf(repo.goal().toString()) }
     var pendingImport by remember { mutableStateOf<String?>(null) }
     var pendingCount by remember { mutableStateOf(0) }
+    var confirmClear by remember { mutableStateOf(false) }
     val lastExport = repo.lastExport()
     val theme = repo.theme()
     val bkEvery = repo.bkEvery()
@@ -161,6 +162,31 @@ fun MenuScreen(repo: Repo) {
         HCard {
             Txt("About", 18f, InkText, FontWeight.Bold)
             Txt("Inkar-Native · version $version", 15f, InkMuted, modifier = Modifier.padding(top = 4.dp))
+        }
+
+        HCard {
+            Txt("Clear local data", 18f, InkText, FontWeight.Bold)
+            Txt(
+                "Permanently deletes all stories, chapters and activity from this device.",
+                15f, InkMuted, modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
+            )
+            Btn("Clear local data…", { confirmClear = true }, bad = true)
+        }
+    }
+
+    if (confirmClear) {
+        ConfirmModal(
+            "Clear all local data?",
+            "All stories, chapters and activity will be deleted. Export a backup first if you might need them.",
+            "Delete everything",
+            { confirmClear = false },
+        ) {
+            confirmClear = false
+            repo.clearAll()
+            name = repo.name()
+            goal = repo.goal().toString()
+            toast(ctx, "Local data cleared")
+            onCleared()
         }
     }
 

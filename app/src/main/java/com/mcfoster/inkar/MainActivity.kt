@@ -110,11 +110,14 @@ private fun InkarApp(repo: Repo) {
     var newRequested by remember { mutableStateOf(false) }
     var editing by rememberSaveable { mutableStateOf<String?>(null) }
     var viewing by remember { mutableStateOf(false) }
+    var searching by rememberSaveable { mutableStateOf(false) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
     val imeOpen = WindowInsets.ime.getBottom(LocalDensity.current) > 0
     val levelUp = repo.levelUp
     val wide = LocalConfiguration.current.screenWidthDp >= 600
 
     fun openEditor(sid: String, cid: String) {
+        searching = false
         viewing = false
         editing = "$sid|$cid"
         tab = 2
@@ -133,6 +136,7 @@ private fun InkarApp(repo: Repo) {
         if (c != null) {
             openEditor(s.id, c.id)
         } else {
+            searching = false
             storyTab = "overview"
             openStory = s.id
             tab = 1
@@ -140,6 +144,7 @@ private fun InkarApp(repo: Repo) {
     }
 
     fun selectTab(i: Int) {
+        searching = false
         if (i == 2) {
             if (editing != null) {
                 tab = 2
@@ -154,9 +159,10 @@ private fun InkarApp(repo: Repo) {
         tab = i
     }
 
-    BackHandler(enabled = editing != null || openStory != null || tab != 0) {
+    BackHandler(enabled = searching || editing != null || openStory != null || tab != 0) {
         val e = editing
         when {
+            searching -> searching = false
             e != null && viewing -> viewing = false
             e != null -> leaveEditor(e.substringBefore('|'))
             openStory != null -> openStory = null
@@ -171,10 +177,37 @@ private fun InkarApp(repo: Repo) {
                 enter = fadeIn(tween(200)) + expandVertically(tween(200), expandFrom = Alignment.Top),
                 exit = fadeOut(tween(200)) + shrinkVertically(tween(200), shrinkTowards = Alignment.Top),
             ) {
-                AppTopBar(repo, showNav = wide && editing == null, selected = tab, onSelect = { selectTab(it) })
+                AppTopBar(
+                    repo,
+                    showNav = wide && editing == null,
+                    selected = tab,
+                    onSelect = { selectTab(it) },
+                    onSearch = { if (editing == null || !viewing) searching = true },
+                )
             }
             Box(Modifier.weight(1f).fillMaxWidth()) {
-                when (tab) {
+                if (searching) {
+                    SearchScreen(
+                        repo,
+                        query = searchQuery,
+                        onQuery = { searchQuery = it },
+                        onStory = { sid ->
+                            searching = false
+                            editing = null
+                            storyTab = "overview"
+                            openStory = sid
+                            tab = 1
+                        },
+                        onChapter = { sid, cid -> openEditor(sid, cid) },
+                        onNote = { sid ->
+                            searching = false
+                            editing = null
+                            storyTab = "notes"
+                            openStory = sid
+                            tab = 1
+                        },
+                    )
+                } else when (tab) {
                     0 -> HomeScreen(
                         repo,
                         onContinue = { s -> continueStory(s) },
@@ -228,7 +261,12 @@ private fun InkarApp(repo: Repo) {
                         }
                     }
                     3 -> StatsScreen(repo)
-                    else -> MenuScreen(repo)
+                    else -> MenuScreen(repo, onCleared = {
+                        openStory = null
+                        editing = null
+                        searchQuery = ""
+                        tab = 0
+                    })
                 }
             }
             val showBottom = !wide && !imeOpen && !viewing && editing == null

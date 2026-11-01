@@ -131,8 +131,7 @@ private fun LevelCard(lv: LevelInfo) {
                     val stroke = 6.dp.toPx()
                     val r = 38.dp.toPx()
                     val c = Offset(size.width / 2f, size.height / 2f)
-                    drawCircle(InkEl, radius = r - stroke / 2f, center = c)
-                    drawCircle(InkBorder, radius = r, center = c, style = Stroke(stroke))
+                    drawCircle(InkEl, radius = r, center = c, style = Stroke(stroke))
                     if (lv.progress > 0f) {
                         drawArc(
                             color = InkBlue,
@@ -155,13 +154,13 @@ private fun LevelCard(lv: LevelInfo) {
             Column(Modifier.weight(1f)) {
                 Txt(lv.title, 24f, InkBlue, FontWeight.Bold, lh = 1.15f)
                 Txt("Level ${lv.index + 1} Author", 14f, InkMuted)
-                Spacer(Modifier.height(10.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Txt("${fmt(lv.words)} words written", 12f, InkDim)
-                    Txt(if (lv.hasNext) "${fmt(lv.left)} to next" else "Max level reached", 12f, InkDim)
-                }
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(12.dp))
                 StatBar(lv.progress)
+                Spacer(Modifier.height(8.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Txt("${fmt(lv.words)} words written", 13f, InkDim)
+                    Txt(if (lv.hasNext) "${fmt(lv.left)} to next" else "Max level reached", 13f, InkDim)
+                }
             }
         }
     }

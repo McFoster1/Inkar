@@ -54,6 +54,37 @@ fun wc(t: String): Int = WORD.findAll(t).count()
 
 class EditChapter(val title: String, val html: String, val content: String, val storyTitle: String)
 
+class Snip(val before: String, val match: String, val after: String, val head: Boolean, val tail: Boolean)
+
+class StoryHit(val id: String, val title: String, val genre: String, val chapters: Int)
+
+class ChapterHit(val sid: String, val cid: String, val title: String, val story: String, val matches: Int, val snip: Snip?)
+
+class NoteHit(val sid: String, val title: String, val story: String, val cat: String, val snip: Snip?)
+
+class SearchResults(val stories: List<StoryHit>, val chapters: List<ChapterHit>, val notes: List<NoteHit>) {
+    val isEmpty: Boolean get() = stories.isEmpty() && chapters.isEmpty() && notes.isEmpty()
+}
+
+private fun countOcc(text: String, q: String): Int {
+    var c = 0
+    var i = text.indexOf(q, 0, ignoreCase = true)
+    while (i >= 0) {
+        c++
+        i = text.indexOf(q, i + q.length, ignoreCase = true)
+    }
+    return c
+}
+
+private fun makeSnip(text: String, q: String): Snip? {
+    val t = text.replace(Regex("\\s+"), " ")
+    val i = t.indexOf(q, 0, ignoreCase = true)
+    if (i < 0) return null
+    val a = maxOf(0, i - 35)
+    val b = minOf(t.length, i + q.length + 70)
+    return Snip(t.substring(a, i), t.substring(i, i + q.length), t.substring(i + q.length, b), a > 0, b < t.length)
+}
+
 data class WeekdayStats(val days: Int, val avg: List<Int>)
 
 data class ChartDay(val date: LocalDate, val words: Map<String, Int>)
@@ -750,6 +781,45 @@ class Repo private constructor(context: Context) {
             if (run > best) best = run
         }
         return best
+    }
+
+    // ---------- search ----------
+
+    /** Finds stories, chapters and notes that contain the text (at least 2 letters), ignoring case. */
+    fun searchAll(raw: String): SearchResults {
+        val q = raw.trim()
+        if (q.length < 2) return SearchResults(emptyList(), emptyList(), emptyList())
+        val stories = ArrayList<StoryHit>()
+        val chapters = ArrayList<ChapterHit>()
+        val notes = ArrayList<NoteHit>()
+        for (s in root.objs("stories")) {
+            val sid = s.optString("id")
+            val title = s.optString("title", "")
+            val chs = s.objs("chapters")
+            if ((title + " " + s.optString("description", "")).contains(q, ignoreCase = true)) {
+                stories.add(StoryHit(sid, title, s.optString("genre", ""), chs.size))
+            }
+            for (c in chs) {
+                val tx = c.optString("content", "")
+                val ct = c.optString("title", "")
+                val m = countOcc(tx, q) + countOcc(ct, q)
+                if (m > 0) chapters.add(ChapterHit(sid, c.optString("id"), ct, title, m, makeSnip(tx, q)))
+            }
+            for (x in s.objs("notes")) {
+                val tx = x.optString("text", "")
+                val nt = x.optString("title", "")
+                if (countOcc(tx, q) + countOcc(nt, q) > 0) notes.add(NoteHit(sid, nt, title, x.optString("cat", ""), makeSnip(tx, q)))
+            }
+        }
+        return SearchResults(stories, chapters, notes)
+    }
+
+    /** Deletes everything and starts again from an empty app. */
+    fun clearAll() {
+        root = defaultState()
+        fix()
+        levelUp = null
+        commit()
     }
 
     // ---------- settings ----------

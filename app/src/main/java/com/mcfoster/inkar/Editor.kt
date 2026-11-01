@@ -1,6 +1,7 @@
 package com.mcfoster.inkar
 
 import android.content.Context
+import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -14,6 +15,7 @@ import android.text.Spannable
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.TextWatcher
+import android.text.style.LeadingMarginSpan
 import android.text.style.LineHeightSpan
 import android.text.style.StyleSpan
 import android.util.TypedValue
@@ -139,9 +141,12 @@ fun parseHtml(html: String): Pair<String, ByteArray> {
     val st = ArrayList<Byte>()
     var bold = 0
     var ital = 0
+    var listLine = false
     fun put(ch: Char) {
         sb.append(ch)
-        st.add((if (ch == '\n') 0 else (if (bold > 0) BOLD else 0) or (if (ital > 0) ITALIC else 0)).toByte())
+        val lf = if (listLine) LIST else 0
+        val f = if (ch == '\n') lf else ((if (bold > 0) BOLD else 0) or (if (ital > 0) ITALIC else 0) or lf)
+        st.add(f.toByte())
     }
     fun newlineIfNeeded() {
         if (sb.isNotEmpty() && sb[sb.length - 1] != '\n') put('\n')
@@ -165,7 +170,15 @@ fun parseHtml(html: String): Pair<String, ByteArray> {
                 "b", "strong" -> bold = maxOf(0, bold + if (closing) -1 else 1)
                 "i", "em" -> ital = maxOf(0, ital + if (closing) -1 else 1)
                 "br" -> put('\n')
-                "div", "p", "li", "h1", "h2", "h3", "h4", "h5", "h6", "ul", "ol", "blockquote" -> if (!closing) newlineIfNeeded()
+                "li" -> if (!closing) {
+                    newlineIfNeeded()
+                    listLine = true
+                }
+                "ul", "ol" -> if (!closing) newlineIfNeeded()
+                "div", "p", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote" -> if (!closing) {
+                    newlineIfNeeded()
+                    listLine = false
+                }
             }
         } else if (c == '&') {
             val semi = html.indexOf(';', i)
@@ -210,9 +223,9 @@ private fun lineHtml(text: String, styles: ByteArray, from: Int, to: Int): Strin
     val out = StringBuilder()
     var i = from
     while (i < to) {
-        val v = styles[i].toInt()
+        val v = styles[i].toInt() and 3
         var j = i + 1
-        while (j < to && styles[j].toInt() == v) j++
+        while (j < to && (styles[j].toInt() and 3) == v) j++
         val seg = esc(text.substring(i, j))
         val isBold = (v and BOLD) != 0
         val isItal = (v and ITALIC) != 0
@@ -226,25 +239,44 @@ private fun lineHtml(text: String, styles: ByteArray, from: Int, to: Int): Strin
     return out.toString()
 }
 
-/** Writes the HTML structure the HTML app produces itself: first line bare, later lines as divs. */
+/** Writes the HTML structure the HTML app produces itself: first line bare, later lines as divs, lists as ul/li. */
 fun toHtml(text: String, styles: ByteArray): String {
     val out = StringBuilder()
     var start = 0
     var first = true
+    var inList = false
     val firstEmptyWithMore = text.startsWith("\n")
     while (true) {
         val nl = text.indexOf('\n', start)
         val end = if (nl < 0) text.length else nl
         val line = lineHtml(text, styles, start, end)
-        if (first && !firstEmptyWithMore) {
-            out.append(line)
+        val isList = if (end > start) {
+            start < styles.size && (styles[start].toInt() and LIST) != 0
         } else {
-            out.append("<div>").append(if (line.isEmpty()) "<br>" else line).append("</div>")
+            end < text.length && end < styles.size && (styles[end].toInt() and LIST) != 0
+        }
+        if (isList) {
+            if (!inList) {
+                out.append("<ul>")
+                inList = true
+            }
+            out.append("<li>").append(if (line.isEmpty()) "<br>" else line).append("</li>")
+        } else {
+            if (inList) {
+                out.append("</ul>")
+                inList = false
+            }
+            if (first && !firstEmptyWithMore) {
+                out.append(line)
+            } else {
+                out.append("<div>").append(if (line.isEmpty()) "<br>" else line).append("</div>")
+            }
         }
         first = false
         if (nl < 0) break
         start = nl + 1
     }
+    if (inList) out.append("</ul>")
     return out.toString()
 }
 
@@ -307,7 +339,29 @@ class WriterEditText(ctx: Context) : EditText(ctx) {
         if (id == android.R.id.paste) super.onTextContextMenuItem(android.R.id.pasteAsPlainText) else super.onTextContextMenuItem(id)
 }
 
-// ======================= bold / italic as spans =======================
+// ======================= bold / italic / list as spans =======================
+
+private const val LIST = 4
+
+/** Marks characters that belong to a bullet-list paragraph (the text itself has no bullet character). */
+private class ListMarkSpan
+
+/** Draws one bullet. One per list paragraph, rebuilt from the list marks after every change. */
+private class ListBulletSpan(private val indentPx: Int, private val radiusPx: Float) : LeadingMarginSpan {
+    override fun getLeadingMargin(first: Boolean): Int = indentPx
+
+    override fun drawLeadingMargin(
+        c: Canvas, p: Paint, x: Int, dir: Int, top: Int, baseline: Int, bottom: Int,
+        text: CharSequence, start: Int, end: Int, first: Boolean, layout: Layout,
+    ) {
+        if (!first) return
+        val old = p.style
+        p.style = Paint.Style.FILL
+        val cy = baseline + (p.ascent() + p.descent()) / 2f
+        c.drawCircle(x + dir * (indentPx * 0.35f), cy, radiusPx, p)
+        p.style = old
+    }
+}
 
 private fun bitsOf(style: Int): Int = when (style) {
     Typeface.BOLD -> BOLD
@@ -316,14 +370,27 @@ private fun bitsOf(style: Int): Int = when (style) {
     else -> 0
 }
 
-/** One flag byte (bold = 1, italic = 2) per character, read from the text's style spans. */
+private fun spanBits(sp: Any): Int = when (sp) {
+    is StyleSpan -> bitsOf(sp.style)
+    is ListMarkSpan -> LIST
+    else -> 0
+}
+
+private fun markSpans(e: Spanned, a: Int, b: Int): List<Any> {
+    val out = ArrayList<Any>()
+    for (sp in e.getSpans(a, b, StyleSpan::class.java)) out.add(sp)
+    for (sp in e.getSpans(a, b, ListMarkSpan::class.java)) out.add(sp)
+    return out
+}
+
+/** One flag byte (bold = 1, italic = 2, list = 4) per character, read from the text's spans. */
 private fun flagsOf(e: Spanned): ByteArray {
     val f = ByteArray(e.length)
-    for (sp in e.getSpans(0, e.length, StyleSpan::class.java)) {
+    for (sp in markSpans(e, 0, e.length)) {
         val a = e.getSpanStart(sp)
         val b = e.getSpanEnd(sp)
         if (a < 0 || b <= a) continue
-        val bits = bitsOf(sp.style)
+        val bits = spanBits(sp)
         for (k in a until b) f[k] = (f[k].toInt() or bits).toByte()
     }
     return f
@@ -332,12 +399,12 @@ private fun flagsOf(e: Spanned): ByteArray {
 private fun flagAtChar(e: Spanned, idx: Int): Int {
     if (idx < 0 || idx >= e.length) return 0
     var f = 0
-    for (sp in e.getSpans(idx, idx + 1, StyleSpan::class.java)) f = f or bitsOf(sp.style)
+    for (sp in markSpans(e, idx, idx + 1)) f = f or spanBits(sp)
     return f
 }
 
 private fun addRuns(e: Editable, base: Int, fl: IntArray) {
-    for (bit in intArrayOf(BOLD, ITALIC)) {
+    for (bit in intArrayOf(BOLD, ITALIC, LIST)) {
         var i = 0
         while (i < fl.size) {
             if ((fl[i] and bit) == 0) {
@@ -346,16 +413,21 @@ private fun addRuns(e: Editable, base: Int, fl: IntArray) {
             }
             var j = i + 1
             while (j < fl.size && (fl[j] and bit) != 0) j++
-            e.setSpan(StyleSpan(if (bit == BOLD) Typeface.BOLD else Typeface.ITALIC), base + i, base + j, Spanned.SPAN_EXCLUSIVE_INCLUSIVE)
+            val span: Any = when (bit) {
+                BOLD -> StyleSpan(Typeface.BOLD)
+                ITALIC -> StyleSpan(Typeface.ITALIC)
+                else -> ListMarkSpan()
+            }
+            e.setSpan(span, base + i, base + j, Spanned.SPAN_EXCLUSIVE_INCLUSIVE)
             i = j
         }
     }
 }
 
-/** Changes the flags of every character in [a, b) and rebuilds the style spans that touch that range. */
+/** Changes the flags of every character in [a, b) and rebuilds the spans that touch that range. */
 private fun modifyFlags(e: Editable, a: Int, b: Int, f: (Int) -> Int) {
     if (b <= a) return
-    val spans = e.getSpans(a, b, StyleSpan::class.java)
+    val spans = markSpans(e, a, b)
     var lo = a
     var hi = b
     for (sp in spans) {
@@ -366,7 +438,7 @@ private fun modifyFlags(e: Editable, a: Int, b: Int, f: (Int) -> Int) {
     for (sp in spans) {
         val s = e.getSpanStart(sp)
         val en = e.getSpanEnd(sp)
-        val bits = bitsOf(sp.style)
+        val bits = spanBits(sp)
         for (k in s until en) fl[k - lo] = fl[k - lo] or bits
     }
     for (sp in spans) e.removeSpan(sp)
@@ -404,6 +476,7 @@ class WriterController(private val initialText: String, private val initialFlags
     private var lastCount = 0
     private var lastEdit = 0L
     private var lookKey = ""
+    private var density = 1f
     private var viewingApplied: Boolean? = null
     private val lineSpan = WriterLineSpan(1, 0)
     private val undoStack = ArrayDeque<Snap>()
@@ -434,16 +507,49 @@ class WriterController(private val initialText: String, private val initialFlags
                 val b = (lastStart + lastCount).coerceIn(a, e.length)
                 modifyFlags(e, a, b) { p }
             }
+            if (p == null && lastCount > 0) {
+                // Text typed at the start of an existing paragraph takes that paragraph's list state,
+                // not the state of the paragraph above it.
+                val a = lastStart.coerceIn(0, e.length)
+                val b = (lastStart + lastCount).coerceIn(a, e.length)
+                if ((a == 0 || e[a - 1] == '\n') && b < e.length) {
+                    val want = flagAtChar(e, b) and LIST
+                    modifyFlags(e, a, b) { old -> (old and LIST.inv()) or want }
+                }
+            }
             pending = null
             ensureLineSpan(e)
+            if (hasListWork(e)) syncBullets(e)
             changing = false
             dirty++
             refreshActive()
         }
     }
 
+    private fun hasListWork(e: Editable): Boolean =
+        e.getSpans(0, e.length, ListMarkSpan::class.java).isNotEmpty() ||
+            e.getSpans(0, e.length, ListBulletSpan::class.java).isNotEmpty()
+
+    /** Rebuilds the bullet of every list paragraph from the list marks. */
+    private fun syncBullets(e: Editable) {
+        for (sp in e.getSpans(0, e.length, ListBulletSpan::class.java)) e.removeSpan(sp)
+        val n = e.length
+        if (n == 0) return
+        val s = e.toString()
+        val indent = (24 * density).roundToInt()
+        val radius = 3f * density
+        var ps = 0
+        while (ps < n) {
+            val nl = s.indexOf('\n', ps)
+            val pe = if (nl < 0) n else nl + 1
+            if ((flagAtChar(e, ps) and LIST) != 0) e.setSpan(ListBulletSpan(indent, radius), ps, pe, Spanned.SPAN_PARAGRAPH)
+            ps = pe
+        }
+    }
+
     fun attach(v: WriterEditText) {
         view = v
+        density = v.resources.displayMetrics.density
         v.onSel = { _, _ ->
             if (!changing) pending = null
             refreshActive()
@@ -453,6 +559,7 @@ class WriterController(private val initialText: String, private val initialFlags
         suppress = false
         v.addTextChangedListener(watcher)
         ensureLineSpan(v.text)
+        syncBullets(v.text)
     }
 
     private fun ensureLineSpan(e: Editable) {
@@ -555,6 +662,46 @@ class WriterController(private val initialText: String, private val initialFlags
         refreshActive()
     }
 
+    /** Turns the paragraphs under the selection into a bullet list, or back into plain paragraphs. */
+    fun toggleList() {
+        val v = view ?: return
+        val e = v.text
+        val s = e.toString()
+        val n = s.length
+        val a = minOf(v.selectionStart, v.selectionEnd)
+        val b = maxOf(v.selectionStart, v.selectionEnd)
+        if (a < 0) return
+        val ps = if (a == 0) 0 else s.lastIndexOf('\n', a - 1) + 1
+        val probe = if (b > a && b > 0 && s[b - 1] == '\n') b - 1 else b
+        val nlAfter = s.indexOf('\n', probe)
+        val pe = if (nlAfter < 0) n else nlAfter + 1
+        if (pe <= ps) {
+            // Empty last line: nothing to mark yet, so the next typed text decides.
+            val base = if (a > 0) flagAtChar(e, a - 1) else 0
+            pending = (pending ?: base) xor LIST
+            refreshActive()
+            return
+        }
+        var all = true
+        var q = ps
+        while (q < pe) {
+            if ((flagAtChar(e, q) and LIST) == 0) {
+                all = false
+                break
+            }
+            val nl = s.indexOf('\n', q)
+            q = if (nl < 0) n else nl + 1
+        }
+        pushSnap()
+        lastEdit = SystemClock.uptimeMillis()
+        redoStack.clear()
+        syncUndoState()
+        modifyFlags(e, ps, pe) { old -> if (all) old and LIST.inv() else old or LIST }
+        syncBullets(e)
+        dirty++
+        refreshActive()
+    }
+
     private fun refreshActive() {
         val v = view ?: return
         val e = v.text
@@ -590,10 +737,12 @@ class WriterController(private val initialText: String, private val initialFlags
         val v = view ?: return
         val e = v.text
         suppress = true
-        for (sp in e.getSpans(0, e.length, StyleSpan::class.java)) e.removeSpan(sp)
+        for (sp in markSpans(e, 0, e.length)) e.removeSpan(sp)
+        for (sp in e.getSpans(0, e.length, ListBulletSpan::class.java)) e.removeSpan(sp)
         e.removeSpan(lineSpan)
         e.replace(0, e.length, buildSpannable(s.text, s.flags))
         ensureLineSpan(e)
+        syncBullets(e)
         val n = e.length
         v.setSelection(s.a.coerceIn(0, n), s.b.coerceIn(0, n))
         suppress = false
@@ -761,6 +910,7 @@ private fun EditorBody(
             if (!viewing) {
                 TbText("B", FontWeight.Bold, FontStyle.Normal, (ctl.activeFlags and BOLD) != 0) { ctl.toggle(BOLD) }
                 TbText("I", FontWeight.Normal, FontStyle.Italic, (ctl.activeFlags and ITALIC) != 0) { ctl.toggle(ITALIC) }
+                TbText("• List", FontWeight.Normal, FontStyle.Normal, (ctl.activeFlags and LIST) != 0) { ctl.toggleList() }
                 TbIcon(R.drawable.ic_undo, ctl.canUndo) { ctl.undo() }
                 TbIcon(R.drawable.ic_redo, ctl.canRedo) { ctl.redo() }
             }
@@ -816,19 +966,17 @@ private fun EditorBody(
             modifier = Modifier.fillMaxWidth().weight(1f),
         )
 
-        // footer: counts, only in view mode
-        if (viewing) {
-            val counts = remember(viewing) {
-                val t = ctl.text()
-                wc(t) to t.replace("\n", "").length
-            }
-            Row(
-                Modifier.fillMaxWidth().padding(vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(20.dp, Alignment.CenterHorizontally),
-            ) {
-                Txt("${fmt(counts.first)} words", 13f, InkMuted, lh = 1.3f)
-                Txt("${fmt(counts.second)} characters", 13f, InkMuted, lh = 1.3f)
-            }
+        // footer: live word and character counts
+        val counts = remember(ctl.dirty, viewing) {
+            val t = ctl.text()
+            wc(t) to t.replace("\n", "").length
+        }
+        Row(
+            Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(20.dp, Alignment.CenterHorizontally),
+        ) {
+            Txt("${fmt(counts.first)} words", 13f, InkMuted, lh = 1.3f)
+            Txt("${fmt(counts.second)} characters", 13f, InkMuted, lh = 1.3f)
         }
     }
 }
