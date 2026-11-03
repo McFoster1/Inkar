@@ -1,4 +1,4 @@
-# Inkar (native)
+# Inkar (native kotlin version)
 
 The native Kotlin version of Inkar, built with Jetpack Compose. Work in progress.
 
