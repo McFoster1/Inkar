@@ -1,4 +1,4 @@
-# Inkar (native kotlin version)
+# Inkar (native)
 
 The native Kotlin version of Inkar, built with Jetpack Compose. Work in progress.
 
@@ -10,4 +10,4 @@ Go to **Actions > Build Kotlin APK > Run workflow**, enter a version (for exampl
 
 ## Status
 
-Phase 4: Search, Clear local data, bullet lists and live counts in the editor, HTML-style level card. Stats tab included.
+Opening splash (nib on black, BY MCFOSTER), About page with update check, internet permission for that check only.

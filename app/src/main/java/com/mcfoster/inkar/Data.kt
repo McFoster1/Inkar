@@ -845,6 +845,16 @@ class Repo private constructor(context: Context) {
         commit()
     }
 
+    fun updateCheckOn(): Boolean {
+        track()
+        return root.optBoolean("updateCheck", false)
+    }
+
+    fun setUpdateCheck(on: Boolean) {
+        root.put("updateCheck", on)
+        commit()
+    }
+
     fun setProfile(name: String, goal: Int) {
         root.getJSONObject("profile").put("name", name.trim().ifEmpty { "Writer" })
         root.put("goal", goal.coerceIn(1, 100000))

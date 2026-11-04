@@ -15,6 +15,14 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.EnterTransition
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.background
 import kotlinx.coroutines.delay
 import androidx.compose.ui.platform.LocalConfiguration
@@ -68,6 +76,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val repo = Repo.get(applicationContext)
+        val splashOnStart = savedInstanceState == null
+        if (splashOnStart && repo.updateCheckOn()) Updater.check(applicationContext)
         Theme.mode = repo.theme()
         Theme.sysDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         applyBars(Theme.isLight)
@@ -79,10 +89,22 @@ class MainActivity : ComponentActivity() {
                 Theme.sysDark = sysDark
             }
             val light = Theme.isLight
-            SideEffect { applyBars(light) }
+            var splashDone by rememberSaveable { mutableStateOf(!splashOnStart) }
+            LaunchedEffect(Unit) {
+                if (!splashDone) {
+                    delay(1300)
+                    splashDone = true
+                }
+            }
+            SideEffect { applyBars(light && splashDone) }
             MaterialTheme(colorScheme = inkColorScheme()) {
                 Surface(modifier = Modifier.fillMaxSize(), color = InkBg) {
-                    InkarApp(repo)
+                    Box(Modifier.fillMaxSize()) {
+                        InkarApp(repo)
+                        AnimatedVisibility(visible = !splashDone, enter = EnterTransition.None, exit = fadeOut(tween(350))) {
+                            SplashScreen()
+                        }
+                    }
                 }
             }
         }
@@ -111,6 +133,7 @@ private fun InkarApp(repo: Repo) {
     var editing by rememberSaveable { mutableStateOf<String?>(null) }
     var viewing by remember { mutableStateOf(false) }
     var searching by rememberSaveable { mutableStateOf(false) }
+    var aboutOpen by rememberSaveable { mutableStateOf(false) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
     val imeOpen = WindowInsets.ime.getBottom(LocalDensity.current) > 0
     val levelUp = repo.levelUp
@@ -145,6 +168,7 @@ private fun InkarApp(repo: Repo) {
 
     fun selectTab(i: Int) {
         searching = false
+        aboutOpen = false
         if (i == 2) {
             if (editing != null) {
                 tab = 2
@@ -159,10 +183,11 @@ private fun InkarApp(repo: Repo) {
         tab = i
     }
 
-    BackHandler(enabled = searching || editing != null || openStory != null || tab != 0) {
+    BackHandler(enabled = aboutOpen || searching || editing != null || openStory != null || tab != 0) {
         val e = editing
         when {
             searching -> searching = false
+            aboutOpen -> aboutOpen = false
             e != null && viewing -> viewing = false
             e != null -> leaveEditor(e.substringBefore('|'))
             openStory != null -> openStory = null
@@ -261,7 +286,7 @@ private fun InkarApp(repo: Repo) {
                         }
                     }
                     3 -> StatsScreen(repo)
-                    else -> MenuScreen(repo, onCleared = {
+                    else -> if (aboutOpen) AboutScreen(repo) else MenuScreen(repo, onAbout = { aboutOpen = true }, onCleared = {
                         openStory = null
                         editing = null
                         searchQuery = ""
@@ -332,5 +357,26 @@ private fun BottomBar(selected: Int, onSelect: (Int) -> Unit) {
                 }
             }
         }
+    }
+}
+
+/** The opening screen: just the nib on black, signed "BY MCFOSTER". */
+@Composable
+private fun SplashScreen() {
+    Box(Modifier.fillMaxSize().background(Color.Black).pointerInput(Unit) { detectTapGestures { } }) {
+        Image(
+            painterResource(R.drawable.nib),
+            contentDescription = null,
+            modifier = Modifier.align(Alignment.Center).size(width = 67.dp, height = 120.dp),
+            contentScale = ContentScale.Fit,
+        )
+        Text(
+            "BY MCFOSTER",
+            color = Color(0xB3FFFFFF),
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Medium,
+            letterSpacing = 3.sp,
+            modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 44.dp),
+        )
     }
 }

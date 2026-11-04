@@ -80,7 +80,7 @@ private val THEME_OPTS = listOf("Dark", "Light", "System")
 private val BK_OPTS = listOf(0 to "Off", 7 to "Every week", 14 to "Every 2 weeks", 30 to "Every month")
 
 @Composable
-fun MenuScreen(repo: Repo, onCleared: () -> Unit) {
+fun MenuScreen(repo: Repo, onCleared: () -> Unit, onAbout: () -> Unit) {
     val ctx = LocalContext.current
     var name by remember { mutableStateOf(repo.name()) }
     var goal by remember { mutableStateOf(repo.goal().toString()) }
@@ -159,10 +159,8 @@ fun MenuScreen(repo: Repo, onCleared: () -> Unit) {
             }
         }
 
-        HCard {
-            Txt("About", 18f, InkText, FontWeight.Bold)
-            Txt("Inkar-Native · version $version", 15f, InkMuted, modifier = Modifier.padding(top = 4.dp))
-        }
+        Txt("About", 18f, InkText, FontWeight.Bold)
+        AboutRow(onAbout)
 
         HCard {
             Txt("Clear local data", 18f, InkText, FontWeight.Bold)
