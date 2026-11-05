@@ -10,4 +10,4 @@ Go to **Actions > Build Kotlin APK > Run workflow**, enter a version (for exampl
 
 ## Status
 
-Opening splash (nib on black, BY MCFOSTER), About page with update check, internet permission for that check only.
+AMOLED Black option, About header with the app icon, smaller links pinned to the bottom. Includes the opening splash and update check.

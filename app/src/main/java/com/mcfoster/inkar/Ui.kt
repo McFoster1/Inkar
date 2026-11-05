@@ -75,16 +75,17 @@ import androidx.compose.ui.unit.sp
 object Theme {
     var mode by mutableStateOf("dark")
     var sysDark by mutableStateOf(true)
+    var amoled by mutableStateOf(false)
     val isLight: Boolean get() = mode == "light" || (mode == "system" && !sysDark)
 }
 
 val InkBlue = Color(0xFF2563EB)
 val InkOk = Color(0xFF22C55E)
 val InkBad = Color(0xFFEF4444)
-val InkBg: Color get() = if (Theme.isLight) Color(0xFFF5F6F8) else Color(0xFF0B0D10)
-val InkCard: Color get() = if (Theme.isLight) Color(0xFFFFFFFF) else Color(0xFF13161B)
+val InkBg: Color get() = if (Theme.isLight) Color(0xFFF5F6F8) else if (Theme.amoled) Color(0xFF000000) else Color(0xFF0B0D10)
+val InkCard: Color get() = if (Theme.isLight) Color(0xFFFFFFFF) else if (Theme.amoled) Color(0xFF0D0F12) else Color(0xFF13161B)
 val InkNav: Color get() = InkCard
-val InkEl: Color get() = if (Theme.isLight) Color(0xFFECEEF2) else Color(0xFF1A1E25)
+val InkEl: Color get() = if (Theme.isLight) Color(0xFFECEEF2) else if (Theme.amoled) Color(0xFF16191E) else Color(0xFF1A1E25)
 val InkBorder: Color get() = if (Theme.isLight) Color(0x17000000) else Color(0x14FFFFFF)
 val InkText: Color get() = if (Theme.isLight) Color(0xF20A0C10) else Color(0xF2FFFFFF)
 val InkMuted: Color get() = if (Theme.isLight) Color(0xA60A0C10) else Color(0xA6FFFFFF)

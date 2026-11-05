@@ -62,9 +62,10 @@ fun AboutScreen(repo: Repo) {
     val checkOn = repo.updateCheckOn()
     val st = Updater.state
 
+    Box(Modifier.fillMaxSize()) {
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-            .padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 24.dp),
+            .padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 96.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         // header
@@ -74,9 +75,7 @@ fun AboutScreen(repo: Repo) {
                 .border(1.dp, InkBlue.copy(alpha = 0.25f), shape).padding(vertical = 28.dp, horizontal = 18.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Box(Modifier.size(78.dp).clip(CircleShape).background(InkBlue), contentAlignment = Alignment.Center) {
-                Image(painterResource(R.drawable.nib), null, Modifier.size(23.dp, 42.dp), contentScale = ContentScale.Fit)
-            }
+            Image(painterResource(R.drawable.app_icon), null, Modifier.size(78.dp).clip(CircleShape), contentScale = ContentScale.Crop)
             Txt("Inkar", 28f, InkText, FontWeight.Bold, modifier = Modifier.padding(top = 14.dp))
             Txt("Version $version", 15f, InkMuted)
             Txt("A private writing workspace for authors", 15f, InkMuted, modifier = Modifier.padding(top = 6.dp), align = TextAlign.Center)
@@ -151,21 +150,23 @@ fun AboutScreen(repo: Repo) {
             }
         }
 
-        // links
-        Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-            LinkButton("Website", { uri.openUri(REPO_URL) }) {
-                Image(painterResource(R.drawable.nib), null, Modifier.size(15.dp, 27.dp), contentScale = ContentScale.Fit, colorFilter = ColorFilter.tint(InkText))
-            }
-            LinkButton("Source", { uri.openUri(REPO_URL) }) { VecIcon(R.drawable.ic_github, InkText, 40.dp) }
-            LinkButton("Releases", { uri.openUri(RELEASES_URL) }) { VecIcon(R.drawable.ic_alert, InkText, 34.dp) }
+    }
+
+    // links, pinned to the bottom
+    Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+        LinkButton("Website", { uri.openUri(REPO_URL) }) {
+            Image(painterResource(R.drawable.nib), null, Modifier.size(11.dp, 20.dp), contentScale = ContentScale.Fit, colorFilter = ColorFilter.tint(InkText))
         }
+        LinkButton("Source", { uri.openUri(REPO_URL) }) { VecIcon(R.drawable.ic_github, InkText, 26.dp) }
+        LinkButton("Releases", { uri.openUri(RELEASES_URL) }) { VecIcon(R.drawable.ic_alert, InkText, 22.dp) }
+    }
     }
 }
 
 @Composable
 private fun LinkButton(label: String, onClick: () -> Unit, icon: @Composable () -> Unit) {
     Column(Modifier.clip(RoundedCornerShape(16.dp)).clickable(onClick = onClick).padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(64.dp).clip(CircleShape).background(InkEl), contentAlignment = Alignment.Center) { icon() }
-        Txt(label, 13f, InkMuted, modifier = Modifier.padding(top = 6.dp))
+        Box(Modifier.size(44.dp).clip(CircleShape).background(InkEl), contentAlignment = Alignment.Center) { icon() }
+        Txt(label, 12f, InkMuted, modifier = Modifier.padding(top = 4.dp))
     }
 }

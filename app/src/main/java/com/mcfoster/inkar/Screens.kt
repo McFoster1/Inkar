@@ -24,6 +24,9 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -130,6 +133,27 @@ fun MenuScreen(repo: Repo, onCleared: () -> Unit, onAbout: () -> Unit) {
             HField(name, { name = it }, label = "Your name", maxLen = 60)
             HField(goal, { goal = it.filter { ch -> ch.isDigit() }.take(6) }, label = "Daily word goal", keyboardType = KeyboardType.Number)
             HSelect("Theme", theme.replaceFirstChar { it.uppercase() }, THEME_OPTS, { repo.setTheme(it.lowercase()) })
+            Spacer(Modifier.height(14.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                VecIcon(R.drawable.ic_contrast, InkBlue, 24.dp)
+                Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                    Txt("AMOLED Black", 16f, InkText, FontWeight.SemiBold)
+                    Txt(if (Theme.isLight) "Available when the dark theme is on" else "Pure black for OLED screens", 13f, InkMuted)
+                }
+                Switch(
+                    checked = repo.amoled(),
+                    onCheckedChange = { repo.setAmoled(it) },
+                    enabled = !Theme.isLight,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.Black,
+                        checkedTrackColor = InkBlue,
+                        checkedBorderColor = InkBlue,
+                        uncheckedThumbColor = InkMuted,
+                        uncheckedTrackColor = InkEl,
+                        uncheckedBorderColor = InkBorder,
+                    ),
+                )
+            }
             Spacer(Modifier.height(16.dp))
             Btn("Save", {
                 repo.setProfile(name, goal.toIntOrNull() ?: repo.goal())

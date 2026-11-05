@@ -845,6 +845,16 @@ class Repo private constructor(context: Context) {
         commit()
     }
 
+    fun amoled(): Boolean {
+        track()
+        return root.optBoolean("amoled", false)
+    }
+
+    fun setAmoled(on: Boolean) {
+        root.put("amoled", on)
+        commit()
+    }
+
     fun updateCheckOn(): Boolean {
         track()
         return root.optBoolean("updateCheck", false)

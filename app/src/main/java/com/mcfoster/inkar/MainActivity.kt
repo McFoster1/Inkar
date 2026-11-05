@@ -79,13 +79,16 @@ class MainActivity : ComponentActivity() {
         val splashOnStart = savedInstanceState == null
         if (splashOnStart && repo.updateCheckOn()) Updater.check(applicationContext)
         Theme.mode = repo.theme()
+        Theme.amoled = repo.amoled()
         Theme.sysDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         applyBars(Theme.isLight)
         setContent {
             val saved = repo.theme()
+            val amoledOn = repo.amoled()
             val sysDark = isSystemInDarkTheme()
             SideEffect {
                 Theme.mode = saved
+                Theme.amoled = amoledOn
                 Theme.sysDark = sysDark
             }
             val light = Theme.isLight
