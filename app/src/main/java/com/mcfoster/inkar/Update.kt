@@ -10,7 +10,7 @@ import java.net.URL
 import kotlin.concurrent.thread
 
 /** After the repo is renamed to Inkar, GitHub forwards this old name, so it keeps working. */
-const val REPO_SLUG = "McFoster1/Inkar-Native"
+const val REPO_SLUG = "McFoster1/Inkar"
 const val REPO_URL = "https://github.com/$REPO_SLUG"
 const val RELEASES_URL = "$REPO_URL/releases"
 
