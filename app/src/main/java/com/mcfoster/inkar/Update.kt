@@ -74,7 +74,7 @@ object Updater {
             var bestUrl = RELEASES_URL
             for (i in 0 until arr.length()) {
                 val r = arr.getJSONObject(i)
-                if (r.optBoolean("draft")) continue
+                if (r.optBoolean("draft") || r.optBoolean("prerelease")) continue
                 val v = parseVersion(r.optString("tag_name")) ?: continue
                 val top = bestVersion
                 if (top == null || compareVersions(v, top) > 0) {

@@ -1,10 +1,17 @@
-name: Build Kotlin APK
+name: Build Inkar APK
 
 on:
   workflow_dispatch:
     inputs:
+      channel:
+        description: 'stable = real app (com.mcfoster.inkar), dev = test app (com.mcfoster.inkar.dev)'
+        type: choice
+        options:
+          - stable
+          - dev
+        default: dev
       version:
-        description: 'Version number, for example 0.1.0'
+        description: 'Version number, for example 1.0.0'
         required: true
 
 permissions:
@@ -16,6 +23,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check the signing key
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KS_B64" ] || [ -z "$KS_PASS" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASS" ]; then
+            echo "One of the four signing secrets is missing. Not building."
+            exit 1
+          fi
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -26,7 +45,7 @@ jobs:
           gradle-version: 8.11.1
 
       - name: Build the APK
-        run: gradle assembleRelease --no-daemon -PappVersionName=${{ inputs.version }} -PappVersionCode=${{ github.run_number }}
+        run: gradle assembleRelease --no-daemon -PappChannel=${{ inputs.channel }} -PappVersionName=${{ inputs.version }} -PappVersionCode=${{ github.run_number }}
 
       - name: Sign the APK
         env:
@@ -37,21 +56,28 @@ jobs:
         run: |
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
           UNSIGNED=$(ls app/build/outputs/apk/release/*.apk | head -1)
-          if [ -n "$KS_B64" ]; then
-            echo "$KS_B64" | base64 -d > release.jks
-          else
-            echo "No signing key found, using a temporary test key."
-            KS_PASS=android; KEY_ALIAS=testkey; KEY_PASS=android
-            keytool -genkeypair -keystore release.jks -storepass android -keypass android -alias testkey -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Inkar Test"
-          fi
+          echo "$KS_B64" | base64 -d > release.jks
           "$BT/zipalign" -p -f 4 "$UNSIGNED" aligned.apk
-          "$BT/apksigner" sign --ks release.jks --ks-pass pass:"$KS_PASS" --ks-key-alias "$KEY_ALIAS" --key-pass pass:"$KEY_PASS" --out "Inkar-native-v${{ inputs.version }}.apk" aligned.apk
+          if [ "${{ inputs.channel }}" = "stable" ]; then NAME="Inkar-v${{ inputs.version }}.apk"; else NAME="Inkar-dev-v${{ inputs.version }}.apk"; fi
+          "$BT/apksigner" sign --ks release.jks --ks-pass pass:"$KS_PASS" --ks-key-alias "$KEY_ALIAS" --key-pass pass:"$KEY_PASS" --out "$NAME" aligned.apk
+          echo "APK_NAME=$NAME" >> "$GITHUB_ENV"
+          rm -f release.jks
 
-      - name: Publish the release
+      - name: Publish the stable release
+        if: inputs.channel == 'stable'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: native-v${{ inputs.version }}
-          name: Inkar native v${{ inputs.version }}
-          files: Inkar-native-v${{ inputs.version }}.apk
-          body: Development build of the native Kotlin version of Inkar. It installs next to the real Inkar.
+          tag_name: v${{ inputs.version }}
+          name: Inkar v${{ inputs.version }}
+          files: ${{ env.APK_NAME }}
+          prerelease: false
+
+      - name: Publish the dev pre-release
+        if: inputs.channel == 'dev'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: dev-v${{ inputs.version }}
+          name: Inkar dev v${{ inputs.version }}
+          files: ${{ env.APK_NAME }}
+          body: Test build. It installs next to the real Inkar.
           prerelease: true

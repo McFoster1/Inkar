@@ -1,0 +1,33 @@
+name: Create signing key (one time)
+
+# Run this once, download the artifact, then delete this file, the run and the artifact.
+# It uses the secret ANDROID_KEYSTORE_PASSWORD that you add first. The password is never printed.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  key:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Make the key
+        env:
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$KS_PASS" ]; then
+            echo "Add the secret ANDROID_KEYSTORE_PASSWORD first."
+            exit 1
+          fi
+          keytool -genkeypair -keystore inkar-release.jks -storetype PKCS12 \
+            -storepass "$KS_PASS" -keypass "$KS_PASS" -alias inkar \
+            -keyalg RSA -keysize 4096 -validity 36500 \
+            -dname "CN=Inkar, O=McFoster"
+          base64 -w 0 inkar-release.jks > inkar-keystore-base64.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: inkar-signing-key
+          path: |
+            inkar-release.jks
+            inkar-keystore-base64.txt
+          retention-days: 1

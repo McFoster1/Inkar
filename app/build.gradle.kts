@@ -4,14 +4,17 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+val appChannel = (project.findProperty("appChannel") as String?) ?: "dev"
+val isStable = appChannel == "stable"
+
 android {
     namespace = "com.mcfoster.inkar"
     compileSdk = 35
 
     defaultConfig {
-        // Development ID, so this installs next to the real Inkar.
-        // When the native app is ready this becomes "com.mcfoster.inkar".
-        applicationId = "com.mcfoster.inkar.dev"
+        // stable = the real app, dev = test app that installs next to it.
+        applicationId = if (isStable) "com.mcfoster.inkar" else "com.mcfoster.inkar.dev"
+        manifestPlaceholders["appLabel"] = if (isStable) "Inkar" else "Inkar Dev"
         minSdk = 26
         targetSdk = 35
         versionCode = (project.findProperty("appVersionCode") as String?)?.toIntOrNull() ?: 1
